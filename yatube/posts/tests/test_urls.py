@@ -64,8 +64,7 @@ class PostURLTests(TestCase):
             response, f'/auth/login/?next=/posts/{self.post.id}/edit/')
 
     def test_403_page(self):
-        response = HttpResponseForbidden()
-        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
+        response = self.guest_client.get(HttpResponseForbidden())
         self.assertTemplateUsed(response, 'core/403csrf.html')
 
     def test_unexisting_page_url_returns_404_page(self):
@@ -74,10 +73,8 @@ class PostURLTests(TestCase):
         self.assertTemplateUsed(response, 'core/404.html')
 
     def test_500_page(self):
-        response = HttpResponseServerError()
-        self.assertEqual(response.status_code,
-                         HTTPStatus.INTERNAL_SERVER_ERROR)
-        self.assertTemplateUsed(response, 'core/500/.html')
+        response_err = self.guest_client.get(HttpResponseServerError())
+        self.assertTemplateUsed(response_err, 'core/500.html')
 
     def test_urls_uses_correct_template(self):
         self.templates_url_names.update({'/create/': 'posts/create_post.html',
