@@ -63,8 +63,8 @@ class PostURLTests(TestCase):
         self.assertRedirects(
             response, f'/auth/login/?next=/posts/{self.post.id}/edit/')
 
-    def test_unexisting_page_url_returns_403_page(self):
-        response = self.guest_client.get(HttpResponseForbidden())
+    def test_403_page(self):
+        response = HttpResponseForbidden()
         self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
         self.assertTemplateUsed(response, 'core/403csrf.html')
 
@@ -73,8 +73,8 @@ class PostURLTests(TestCase):
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
         self.assertTemplateUsed(response, 'core/404.html')
 
-    def test_unexisting_page_url_returns_500_page(self):
-        response = self.guest_client.get(HttpResponseServerError())
+    def test_500_page(self):
+        response = HttpResponseServerError()
         self.assertEqual(response.status_code,
                          HTTPStatus.INTERNAL_SERVER_ERROR)
         self.assertTemplateUsed(response, 'core/500/.html')
