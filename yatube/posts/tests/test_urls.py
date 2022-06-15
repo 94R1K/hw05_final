@@ -1,5 +1,5 @@
 from http import HTTPStatus
-
+from django.http import HttpResponseForbidden, HttpResponseServerError
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
@@ -64,7 +64,7 @@ class PostURLTests(TestCase):
             response, f'/auth/login/?next=/posts/{self.post.id}/edit/')
 
     def test_unexisting_page_url_returns_403_page(self):
-        response = self.client.get('/')
+        response = self.guest_client.get(HttpResponseForbidden())
         self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
         self.assertTemplateUsed(response, 'core/403csrf.html')
 
@@ -74,7 +74,7 @@ class PostURLTests(TestCase):
         self.assertTemplateUsed(response, 'core/404.html')
 
     def test_unexisting_page_url_returns_500_page(self):
-        response = self.client.get('/')
+        response = self.guest_client.get(HttpResponseServerError())
         self.assertEqual(response.status_code,
                          HTTPStatus.INTERNAL_SERVER_ERROR)
         self.assertTemplateUsed(response, 'core/500/.html')
