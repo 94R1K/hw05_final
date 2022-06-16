@@ -132,8 +132,6 @@ class CommentTests(TestCase):
         super().setUpClass()
 
         cls.user = User.objects.create_user(username='Yaroslav')
-        cls.user_author = User.objects.create_user(username='ABTOR')
-        cls.user_not_follow = User.objects.create_user(username='NotFollow')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test-slug',
