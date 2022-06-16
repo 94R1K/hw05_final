@@ -25,12 +25,15 @@ urlpatterns = [
         views.add_comment,
         name='add_comment'
     ),
+    # Избранные авторы
     path('follow/', views.follow_index, name='follow_index'),
+    # Подписка
     path(
         'profile/<str:username>/follow/',
         views.profile_follow,
         name='profile_follow'
     ),
+    # Отписка
     path(
         'profile/<str:username>/unfollow/',
         views.profile_unfollow,

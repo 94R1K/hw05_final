@@ -3,7 +3,6 @@ import tempfile
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -21,8 +20,6 @@ class PostFormTests(TestCase):
         super().setUpClass()
 
         cls.user = User.objects.create_user(username='Yaroslav')
-        cls.user_author = User.objects.create_user(username='ABTOR')
-        cls.user_not_follow = User.objects.create_user(username='NotFollow')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test-slug',
@@ -31,16 +28,6 @@ class PostFormTests(TestCase):
         cls.post = Post.objects.create(
             text='Тестовый текст',
             author=cls.user,
-            group=cls.group,
-        )
-        cls.comment = Comment.objects.create(
-            post=cls.post,
-            author=cls.user,
-            text='Тестовый коммент',
-        )
-        cls.post_author = Post.objects.create(
-            text='Текст автора',
-            author=cls.user_author,
             group=cls.group,
         )
 
@@ -138,7 +125,54 @@ class PostFormTests(TestCase):
         self.assertEqual(modified_post.group.id, form_data['group'])
         self.assertEqual(modified_post.author, form_data['author'])
 
-    def test_comment_post(self):
+
+class CommentTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.user = User.objects.create_user(username='Yaroslav')
+        cls.user_author = User.objects.create_user(username='ABTOR')
+        cls.user_not_follow = User.objects.create_user(username='NotFollow')
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test-slug',
+            description='Тестовое описание',
+            )
+        cls.post = Post.objects.create(
+            text='Тестовый текст',
+            author=cls.user,
+            group=cls.group,
+        )
+
+    def setUp(self):
+        self.user = CommentTests.user
+        self.guest_client = Client()
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+
+    def test_comment_post_authorized(self):
+        comment_count = Comment.objects.count()
+        comment_data = {
+            'post': self.post,
+            'author': self.user,
+            'text': 'Тестовый коммент_авторизованного'
+        }
+        response_authorized = self.authorized_client.post(
+            reverse('posts:add_comment', args=[self.post.id]),
+            data=comment_data,
+            follow=True
+        )
+        self.assertRedirects(response_authorized,
+                             reverse('posts:post_detail',
+                                     kwargs={'post_id': self.post.id}))
+        self.assertEqual(Comment.objects.count(), comment_count + 1)
+        comment = Comment.objects.get(author=self.user)
+        self.assertEqual(comment.post, comment_data['post'])
+        self.assertEqual(comment.author, comment_data['author'])
+        self.assertEqual(comment.text, comment_data['text'])
+
+    def test_comment_post_guest(self):
         comment_count = Comment.objects.count()
         form_data = {
             'post': self.post,
@@ -154,51 +188,3 @@ class PostFormTests(TestCase):
         add_comment = reverse('posts:add_comment', args=[self.post.id])
         self.assertRedirects(response_guest, f'{login}?next={add_comment}')
         self.assertEqual(Comment.objects.count(), comment_count)
-        form_data = {
-            'post': self.post,
-            'author': self.user,
-            'text': 'Тестовый коммент_авторизованного'
-        }
-        response_authorized = self.authorized_client.post(
-            reverse('posts:add_comment', args=[self.post.id]),
-            data=form_data,
-            follow=True
-        )
-        self.assertRedirects(response_authorized,
-                             reverse('posts:post_detail',
-                                     kwargs={'post_id': self.post.id}))
-        self.assertEqual(Comment.objects.count(), comment_count + 1)
-
-    def test_cache(self):
-        response_not_del = self.authorized_client.get(reverse('posts:index'))
-        Post.objects.all().delete()
-        response_del = self.authorized_client.get(reverse('posts:index'))
-        self.assertEqual(response_not_del.content, response_del.content)
-        cache.clear()
-        response_clear = self.authorized_client.get(reverse('posts:index'))
-        self.assertNotEqual(response_del.content, response_clear.content)
-
-    def test_follow_and_unfollow(self):
-        follow_count = Follow.objects.count()
-        follow_data = {
-            'user': self.user,
-            'author': self.user_author
-        }
-        self.authorized_client.post(
-            reverse('posts:profile_follow', args=[self.user_author]),
-            data=follow_data,
-            follow=True,
-        )
-        response_follow = self.authorized_client.get(
-            reverse('posts:follow_index'))
-        self.assertEqual(Follow.objects.count(), follow_count + 1)
-        self.authorized_client.post(
-            reverse('posts:profile_unfollow', args=[self.user_author]),
-            data=follow_data,
-            follow=True,
-        )
-        response_not_follow = self.authorized_client.get(
-            reverse('posts:follow_index'))
-        self.assertEqual(Follow.objects.count(), follow_count)
-        self.assertNotEqual(response_follow.content,
-                            response_not_follow.content)

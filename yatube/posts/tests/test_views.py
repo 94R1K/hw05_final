@@ -3,10 +3,11 @@ from itertools import islice
 from django import forms
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from posts.models import Group, Post
+from posts.models import Group, Post, Follow
 
 User = get_user_model()
 
@@ -17,6 +18,9 @@ class ViewsTests(TestCase):
         super().setUpClass()
 
         cls.user = User.objects.create_user(username='Yaroslav')
+        cls.user_author = User.objects.create_user(username='AvTor')
+        cls.user_author_1 = User.objects.create_user(username='AvToRr')
+        cls.user_not_follow = User.objects.create_user(username='NotFollow')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test-slug',
@@ -27,11 +31,18 @@ class ViewsTests(TestCase):
             author=cls.user,
             group=cls.group,
         )
+        cls.follow = Follow.objects.create(
+            user=cls.user_not_follow,
+            author=cls.user_author_1,
+        )
 
     def setUp(self):
         self.user = ViewsTests.user
+        self.user_not_follow = ViewsTests.user_not_follow
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+        self.authorized_client_not_follow = Client()
+        self.authorized_client_not_follow.force_login(self.user_not_follow)
         self.templates_pages_names = {
             reverse('posts:index'): 'posts/index.html',
             reverse('posts:group_list',
@@ -119,6 +130,90 @@ class ViewsTests(TestCase):
                 form_field = response.context.get('form').fields.get(value)
                 self.assertIsInstance(form_field, expected)
         self.assertEqual(response.context.get('post').id, self.post.id)
+
+    def test_cache(self):
+        response_not_del = self.authorized_client.get(reverse('posts:index'))
+        Post.objects.all().delete()
+        response_del = self.authorized_client.get(reverse('posts:index'))
+        self.assertEqual(response_not_del.content, response_del.content)
+        cache.clear()
+        response_clear = self.authorized_client.get(reverse('posts:index'))
+        self.assertNotEqual(response_del.content, response_clear.content)
+
+    def test_follow(self):
+        follow_count = Follow.objects.count()
+        follow_data = {
+            'user': self.user,
+            'author': self.user_author
+        }
+        self.authorized_client.post(
+            reverse('posts:profile_follow', args=[self.user_author]),
+            data=follow_data,
+            follow=True,
+        )
+        self.assertEqual(Follow.objects.count(), follow_count + 1)
+
+    def test_unfollow(self):
+        follow_count = Follow.objects.count()
+        Follow.objects.create(
+            user=self.user,
+            author=self.user_author,
+        )
+        self.authorized_client.post(
+            reverse('posts:profile_unfollow', args=[self.user_author]),
+            data={'user': self.user,
+                  'author': self.user_author},
+            follow=True,
+        )
+        self.assertEqual(Follow.objects.count(), follow_count)
+
+    def test_the_subscribed_user_has_a_post_in_the_feed(self):
+        Follow.objects.create(
+            user=self.user,
+            author=self.user_author,
+        )
+        post_author = Post.objects.create(
+            text='Текст автора',
+            author=self.user_author,
+            group=self.group,
+        )
+        response = self.authorized_client.get(reverse('posts:follow_index'))
+        first_obj = response.context['page_obj'][0]
+        self.assertEqual(
+            first_obj.text,
+            post_author.text
+        )
+        self.assertEqual(
+            first_obj.author,
+            post_author.author
+        )
+
+    def test_an_unsubscribed_user_has_a_post_in_the_feed(self):
+        Post.objects.create(
+            text='new_author',
+            author=self.user_author_1,
+            group=self.group,
+        )
+        Follow.objects.create(
+            user=self.user,
+            author=self.user_author,
+        )
+        post_author = Post.objects.create(
+            text='Текст автора',
+            author=self.user_author,
+            group=self.group,
+        )
+        response = self.authorized_client_not_follow.get(
+            reverse('posts:follow_index'))
+        first_obj = response.context['page_obj'][0]
+        self.assertNotEqual(
+            first_obj.text,
+            post_author.text
+        )
+        self.assertNotEqual(
+            first_obj.author,
+            post_author.author
+        )
 
 
 class PaginatorViewsTest(TestCase):

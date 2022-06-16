@@ -68,11 +68,28 @@ class PostURLTests(TestCase):
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
         self.assertTemplateUsed(response, 'core/404.html')
 
+    def test_add_comment_url_redirect(self):
+        response = self.authorized_client.get(
+            f'/posts/{self.post.id}/comment/', follow=True)
+        self.assertRedirects(response, f'/posts/{self.post.id}/')
+
+    def test_profile_follow_url_redirect(self):
+        response = self.authorized_client.get(
+            f'/profile/{self.user}/follow/')
+        self.assertRedirects(response, f'/profile/{self.user}/')
+
+    def test_profile_unfollow_url_redirect(self):
+        response = self.authorized_client.get(
+            f'/profile/{self.user}/unfollow/')
+        self.assertRedirects(response, f'/profile/{self.user}/')
+
     def test_urls_uses_correct_template(self):
         self.templates_url_names.update({'/create/': 'posts/create_post.html',
                                          f'/posts/{self.post.id}/edit/':
-                                             'posts/create_post.html'})
+                                             'posts/create_post.html',
+                                         '/follow/': 'posts/follow.html'})
         for url, template in self.templates_url_names.items():
             with self.subTest(url=url):
                 response = self.authorized_client.get(url)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
                 self.assertTemplateUsed(response, template)

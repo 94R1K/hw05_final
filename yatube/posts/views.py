@@ -37,12 +37,9 @@ def profile(request, username):
     """Страница пользователя"""
     author = get_object_or_404(User, username=username)
     posts = author.posts.all()
-    if request.user.is_authenticated:
-        following = Follow.objects.filter(
-            user=request.user, author=author
-        ).exists()
-    else:
-        following = False
+    following = request.user.is_authenticated and Follow.objects.filter(
+        user=request.user, author=author
+    ).exists()
     profile = author
     context = {
         'author': author,
@@ -58,7 +55,7 @@ def post_detail(request, post_id):
     """Страница с определенным постом"""
     post = get_object_or_404(Post, id=post_id)
     form = CommentForm(request.POST or None)
-    comments = post.comments.filter(active=True)
+    comments = post.comments.all()
     context = {
         'post': post,
         'form': form,
@@ -125,10 +122,11 @@ def follow_index(request):
 @login_required
 def profile_follow(request, username):
     user = request.user
-    author = User.objects.get(username=username)
-    is_follower = Follow.objects.filter(user=user, author=author)
-    if user != author and not is_follower.exists():
-        Follow.objects.create(user=user, author=author)
+    author = get_object_or_404(User, username=username)
+    Follow.objects.get_or_create(
+        user=user,
+        author=author,
+    )
     return redirect('posts:profile', username=username)
 
 
