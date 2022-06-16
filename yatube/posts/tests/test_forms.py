@@ -7,7 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from posts.models import Comment, Follow, Group, Post
+from posts.models import Comment, Group, Post
 
 User = get_user_model()
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
@@ -138,7 +138,7 @@ class CommentTests(TestCase):
             title='Тестовая группа',
             slug='test-slug',
             description='Тестовое описание',
-            )
+        )
         cls.post = Post.objects.create(
             text='Тестовый текст',
             author=cls.user,
