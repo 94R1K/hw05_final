@@ -152,6 +152,9 @@ class ViewsTests(TestCase):
             follow=True,
         )
         self.assertEqual(Follow.objects.count(), follow_count + 1)
+        follow = Follow.objects.get(author=self.user_author)
+        self.assertEqual(follow.user, follow_data['user'])
+        self.assertEqual(follow.author, follow_data['author'])
 
     def test_unfollow(self):
         follow_count = Follow.objects.count()
